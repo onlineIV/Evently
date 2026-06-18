@@ -10,6 +10,8 @@ from datetime import datetime
 import threading
 
 app = Flask(__name__)
+from flask_cors import CORS
+CORS(app)
 app.secret_key = os.urandom(24)
 
 # ================================================================
