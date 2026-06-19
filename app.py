@@ -11,13 +11,7 @@ import threading
 
 app = Flask(__name__)
 from flask_cors import CORS
-CORS(app, origins=[
-    "https://evently-zotk.onrender.com",
-    "https://evntly.online",
-    "https://www.evntly.online",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500"
-], supports_credentials=True)
+CORS(app)
 app.secret_key = os.urandom(24)
 
 # ================================================================
