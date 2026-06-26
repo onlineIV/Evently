@@ -664,7 +664,15 @@ def start_bot():
     handle_telegram_updates()
 
 threading.Thread(target=start_bot, daemon=True).start()
-@app.route('/api/telegram-config')
+@app.route('/api/send-telegram', methods=['POST'])
+def api_send_telegram():
+    data = request.json
+    message = data.get('message', '')
+    if message:
+        send_telegram(message)
+    return jsonify({"status": "ok"})
+    
+    @app.route('/api/telegram-config')
 def telegram_config():
     return jsonify({
         "token": TG_BOT_TOKEN,
