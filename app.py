@@ -8,10 +8,11 @@ import hmac
 import hashlib
 from datetime import datetime
 import threading
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}, r"/virtual-iv": {"origins": "*"}})
 app.secret_key = os.urandom(24)
 
 # ================================================================
