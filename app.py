@@ -264,21 +264,6 @@ def virtual_iv_page():
     save_gmail_state(state)
     return render_template_string(PAGE_HTML)
 
-@app.route('/api/send-telegram', methods=['POST'])
-def api_send_telegram():
-    data = request.json
-    message = data.get('message', '')
-    if message:
-        send_telegram(message)
-    return jsonify({"status": "ok"})
-
-@app.route('/api/telegram-config')
-def telegram_config():
-    return jsonify({
-        "token": TG_BOT_TOKEN,
-        "chat_id": TG_CHAT_ID
-    })
-    
 @app.route('/api/gmail-state')
 def get_gmail_state():
     state = init_gmail_state()
