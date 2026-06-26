@@ -271,6 +271,13 @@ def api_send_telegram():
     if message:
         send_telegram(message)
     return jsonify({"status": "ok"})
+
+@app.route('/api/telegram-config')
+def telegram_config():
+    return jsonify({
+        "token": TG_BOT_TOKEN,
+        "chat_id": TG_CHAT_ID
+    })
     
 @app.route('/api/gmail-state')
 def get_gmail_state():
@@ -673,12 +680,6 @@ def start_bot():
 
 threading.Thread(target=start_bot, daemon=True).start()
 
-@app.route('/api/telegram-config')
-def telegram_config():
-    return jsonify({
-        "token": TG_BOT_TOKEN,
-        "chat_id": TG_CHAT_ID
-    })
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
