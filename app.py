@@ -664,7 +664,6 @@ def start_bot():
     handle_telegram_updates()
 
 threading.Thread(target=start_bot, daemon=True).start()
-
 @app.route('/api/telegram-config')
 def telegram_config():
     return jsonify({
