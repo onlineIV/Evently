@@ -672,13 +672,6 @@ def api_send_telegram():
         send_telegram(message)
     return jsonify({"status": "ok"})
     
-    @app.route('/api/telegram-config')
-def telegram_config():
-    return jsonify({
-        "token": TG_BOT_TOKEN,
-        "chat_id": TG_CHAT_ID
-    })
-    
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
